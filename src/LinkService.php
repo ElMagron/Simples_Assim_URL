@@ -78,12 +78,11 @@ class LinkService
      */
     public function getAndIncrementClicks(string $shortCode): ?string
     {
-        // Limpar o código curto para garantir que só caracteres seguros sejam usados
-        $shortCode = filter_var($shortCode, FILTER_SANITIZE_STRING);
-        
+        $shortCode = filter_var($shortCode, FILTER_SANITIZE_SPECIAL_CHARS);
+
         // Inicia a transação
         $this->db->beginTransaction();
-        
+
         try {
             // Busca a URL longa
             $stmt = $this->db->prepare("SELECT long_url FROM links WHERE short_code = :short_code");
@@ -96,22 +95,22 @@ class LinkService
                 $stmt = $this->db->prepare("UPDATE links SET clicks = clicks + 1 WHERE short_code = :short_code");
                 $stmt->execute([':short_code' => $shortCode]);
 
-                // Se ambas as operações (SELECT e UPDATE) deram certo, confirma a transação
+                // Confirma a transação
                 $this->db->commit();
                 return $longUrl;
             }
 
-            // Se não encontrou ou falhou, desfaz a transação
+            // Se não encontrou, desfaz a transação
             $this->db->rollBack();
 
         } catch (Exception $e) {
-            // Em caso de qualquer erro (ex: falha no UPDATE), desfaz a transação
+            // Em caso de qualquer erro, desfaz a transação
             if ($this->db->inTransaction()) {
                 $this->db->rollBack();
             }
             throw new Exception("Falha ao processar o link: " . $e->getMessage());
         }
-        
+
         return null;
     }
 }
