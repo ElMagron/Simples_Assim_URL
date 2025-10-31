@@ -1,4 +1,21 @@
-# Ignorar arquivos de dependências
+# Composer
 /vendor/
-# Ignorar o arquivo de variáveis de ambiente
+composer.lock
+
+# Variáveis de Ambiente
 .env
+# Não ignore o .env.example, ele deve ir para o Git.
+
+# PHPUnit e Testes
+.phpunit.cache
+
+# Logs e Cache
+/logs/
+*.log
+*.tmp
+/cache/
+
+# Configurações de IDEs (Opcional, mas recomendado)
+.DS_Store
+.idea/
+.vscode/

@@ -4,7 +4,12 @@
     "type": "project",
     "autoload": {
         "psr-4": {
-            "Andre\\SimplesAssimUrl\\": "src/"
+            "App\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/" 
         }
     },
     "authors": [
@@ -14,5 +19,9 @@
     ],
     "require": {
         "vlucas/phpdotenv": "^5.6"
+    },
+    "require-dev": {
+        "vlucas/phpdotenv": "^5.6",
+        "phpunit/phpunit": "^11.5"
     }
 }
