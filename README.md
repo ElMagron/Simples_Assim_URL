@@ -1,1 +1,3 @@
 Bem-vindo ao Simples Assim URL! Este é um encurtador de links minimalista e eficiente, construído inteiramente com PHP Puro (sem frameworks), que prova que é possível ter alta performance e simplicidade no backend.
+
+Welcome to Simples Assim URL! This is a minimalist and efficient link shortener, built entirely with pure PHP (no frameworks), proving that it's possible to have high performance and simplicity on the backend.

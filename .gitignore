@@ -1,1 +1,4 @@
+# Ignorar arquivos de dependências
+/vendor/
+# Ignorar o arquivo de variáveis de ambiente
 .env
