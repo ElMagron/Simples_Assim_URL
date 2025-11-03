@@ -9,71 +9,92 @@ class Router
     private LinkService $linkService;
     private string $basePath = '';
 
+    private array $routes = [
+        'GET' => [],
+        'POST' => [],
+        'PUT' => [],
+        'DELETE' => [],
+    ];
+
     public function __construct()
     {
-        // Instancia o serviço de links, que já cuida da conexão com o BD
         $this->linkService = new LinkService();
     }
 
+    public function get(string $path, string $handler): void
+    {
+        $this->routes['GET'][$path] = $handler;
+    }
+
+    public function post(string $path, string $handler): void
+    {
+        $this->routes['POST'][$path] = $handler;
+    }
+
+    public function put(string $path, string $handler): void
+    {
+        $this->routes['PUT'][$path] = $handler;
+    }
+
+    public function delete(string $path, string $handler): void
+    {
+        $this->routes['DELETE'][$path] = $handler;
+    }
+
+
     /**
-     * Rotina principal do Router.
-     * Responsável por verificar o método HTTP e a URL limpa e
-     * chamar as funções responsáveis pelo tratamento da requisição.
-     *
-     * @throws Exception Se o método HTTP ou a URL limpa forem inconsistentes
+     * Execute o roteador.
+     * Este método recebe a solicitação HTTP atual, determina o 
+     * método e o caminho e, em seguida, chama o manipulador relevante.
+     * 
+     * Se o método for GET e o caminho estiver vazio, ele chama o
+     * método handleHomepage.
+     * Se o método for GET e o caminho não estiver vazio, ele chama o
+     * método handleGetRedirect.
+     * 
+     * Se nenhuma rota correspondente for encontrada, ele chama o método sendNotFound.
      * @return void
      */
     public function run(): void
     {
-        // Obtém o caminho base do arquivo
-        $scriptName = $_SERVER['SCRIPT_NAME'] ?? ''; 
-
-        // Obtém o diretório base do projeto
-        $baseDir = dirname($scriptName); 
+        $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
+        $baseDir = dirname($scriptName);
         if ($baseDir !== '/') {
             $this->basePath = $baseDir;
         }
 
-        // Obtém a URI completa
-        $requestUri = $_SERVER['REQUEST_URI'] ?? ''; 
-
-        // Limpa a URI: remove o subdiretório e limpa as barras
+        $requestUri = $_SERVER['REQUEST_URI'] ?? '';
         if (str_starts_with($requestUri, $baseDir) && $baseDir !== '/') {
-            // Remove o prefixo do subdiretório
             $uri = substr($requestUri, strlen($baseDir));
         } else {
             $uri = $requestUri;
         }
 
-        // Normaliza a URI
         $uri = trim(parse_url($uri, PHP_URL_PATH) ?? '', '/');
-
         $method = $_SERVER['REQUEST_METHOD'];
 
-        switch ($method) {
-            case 'POST':
-                if($uri === 'api/link') {
-                    $this->handlePostCreate();
-                } else {
-                    $this->sendNotFound();
-                }
-                break;
-            
-            case 'GET':
-                if(!empty($uri)) {
-                    if($uri === 'api/status') {
-                        $this->handleHealthCheck();
-                    } else {
-                        $this->handleGetRedirect($uri);
-                    }
-                } else {
-                    $this->handleHomepage(); 
-                }
-                break;
-            default:
-                $this->sendNotFound();
-                break;
+        $methodRoutes = $this->routes[$method] ?? [];
+
+        foreach ($methodRoutes as $path => $handler) {
+            $pattern = "#^" . $path . "$#";
+            if (preg_match($pattern, $uri, $matches)) {
+                array_shift($matches);
+                call_user_func_array([$this, $handler], $matches);
+                return;
+            }
         }
+
+        if ($method === 'GET' && empty($uri)) {
+            $this->handleHomepage();
+            return;
+        }
+
+        if ($method === 'GET' && !empty($uri)) {
+            $this->handleGetRedirect($uri);
+            return;
+        }
+
+        $this->sendNotFound();
     }
 
     /**
@@ -115,6 +136,20 @@ class Router
             // Em caso de erro de validação (ex: URL inválida) ou banco de dados
             $this->sendResponse(500, ['error' => 'Falha ao criar o link.', 'details' => $e->getMessage()]);
         }
+    }
+    
+    /**
+     * Retorna a base URL do servidor, incluindo o protocolo (http:// ou https://)
+     * e o nome do host.
+     *
+     * @return string A base URL do servidor.
+     */
+    private function getBaseUrl(): string
+    {
+        $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
+        $host = $_SERVER['HTTP_HOST'];
+        $fullPath = $protocol . $host . $this->basePath;
+        return rtrim($fullPath, '/');
     }
 
     /**
@@ -167,10 +202,10 @@ class Router
         try {
             // Tenta obter uma conexão real com o banco de dados
             $db = Database::getInstance()->getConnection();
-            
+
             // Tenta executar uma query simples para garantir que o DB está UP
             $db->query('SELECT 1')->fetch();
-            
+
         } catch (\Exception $e) {
             // Se houver qualquer erro (conexão, credenciais, etc.)
             $dbStatus = 'FAIL';
@@ -184,7 +219,7 @@ class Router
             $httpStatus = 503;
             $details['environment_error'] = 'Variáveis de ambiente (DB_HOST/DB_NAME) não carregadas.';
         }
-        
+
         // Define o status geral
         $overallStatus = ($httpStatus === 200) ? 'ACTIVE! 🎉' : 'DEGRADED! 😥';
 
@@ -216,17 +251,34 @@ class Router
     }
 
     /**
-     * Retorna a base URL do servidor, incluindo o protocolo (http:// ou https://)
-     * e o nome do host.
-     *
-     * @return string A base URL do servidor.
+     * Trata requisições GET para estatísticas de um código curto.
+     * @param string $shortCode O código curto capturado pela Regex.
+     * @return void
      */
-    private function getBaseUrl(): string
+    private function handleGetStats(string $shortCode): void
     {
-        $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
-        $host = $_SERVER['HTTP_HOST'];
-        $fullPath = $protocol . $host . $this->basePath;
-        return rtrim($fullPath, '/');
+        try {
+            // Chama a lógica de busca do serviço
+            $stats = $this->linkService->getLinkStats($shortCode);
+
+            if ($stats) {
+                // Retorna as estatísticas com Status 200 (OK)
+                $this->sendResponse(200, [
+                    'message' => 'Estatísticas encontradas.',
+                    'link_info' => $stats
+                ]);
+            } else {
+                // Se o código não for encontrado, retorna 404
+                $this->sendResponse(404, ['error' => 'Link de estatísticas não encontrado.']);
+            }
+
+        } catch (Exception $e) {
+            // Em caso de erro de banco de dados
+            $this->sendResponse(500, [
+                'error' => 'Erro interno ao buscar estatísticas.', 
+                'details' => $e->getMessage()
+            ]);
+        }
     }
 
     /**
