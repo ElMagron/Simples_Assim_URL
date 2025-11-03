@@ -41,7 +41,7 @@ class Database
                 PDO::ATTR_EMULATE_PREPARES => false,
             ]);
         } catch (PDOException $e) {
-            die("Erro de Conexão com o Banco de Dados: " . $e->getMessage());
+            die(json_encode("Erro de Conexão com o Banco de Dados: " . $e->getMessage()));
         }
     }
 

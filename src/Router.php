@@ -24,23 +24,47 @@ class Router
      */
     public function run(): void
     {
-        // Obtém o método HTTP (GET, POST, etc.)
+        // Obtém o caminho base do arquivo
+        $scriptName = $_SERVER['SCRIPT_NAME'] ?? ''; 
+
+        // Obtém o diretório base do projeto
+        $baseDir = dirname($scriptName); 
+
+        // Obtém a URI completa
+        $requestUri = $_SERVER['REQUEST_URI'] ?? ''; 
+
+        // Limpa a URI: remove o subdiretório e limpa as barras
+        if (str_starts_with($requestUri, $baseDir) && $baseDir !== '/') {
+            // Remove o prefixo do subdiretório
+            $uri = substr($requestUri, strlen($baseDir));
+        } else {
+            $uri = $requestUri;
+        }
+
+        // Normaliza a URI
+        $uri = trim(parse_url($uri, PHP_URL_PATH) ?? '', '/');
+
         $method = $_SERVER['REQUEST_METHOD'];
 
-        // Obtém a URL limpa (ex: /create ou /aBcD1)
-        // Isso depende da configuração do .htaccess funcionar corretamente
-        $uri = trim(parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?? '', '/');
-
-        // --- Roteamento Principal ---
-
-        if ($method === 'POST' && $uri === 'create') {
-            $this->handlePostCreate();
-        } elseif ($method === 'GET' && !empty($uri)) {
-            // Qualquer GET que não tenha URI vazia é tratado como hash
-            $this->handleGetRedirect($uri);
-        } else {
-            // Se não for POST /create ou GET /hash
-            $this->sendNotFound();
+        switch ($method) {
+            case 'POST':
+                if($uri === 'create') {
+                    $this->handlePostCreate();
+                } else {
+                    $this->sendNotFound();
+                }
+                break;
+            
+            case 'GET':
+                if(!empty($uri)) {
+                    $this->handleGetRedirect($uri);
+                } else {
+                    $this->handleHealthCheck();
+                }
+                break;
+            default:
+                $this->sendNotFound();
+                break;
         }
     }
 
@@ -122,6 +146,55 @@ class Router
     }
 
     /**
+     * Envia uma resposta de verificação de saúde da API, incluindo o status do DB.
+     * Retorna 200 (OK) se tudo estiver funcionando ou 500 (Erro Interno) se falhar.
+     * @return void
+     */
+    private function handleHealthCheck(): void
+    {
+        $dbStatus = 'OK';
+        $httpStatus = 200;
+        $details = [];
+
+        try {
+            // Tenta obter uma conexão real com o banco de dados
+            $db = Database::getInstance()->getConnection();
+            
+            // Tenta executar uma query simples para garantir que o DB está UP
+            $db->query('SELECT 1')->fetch();
+            
+        } catch (\Exception $e) {
+            // Se houver qualquer erro (conexão, credenciais, etc.)
+            $dbStatus = 'FAIL';
+            $httpStatus = 503; // Service Unavailable é mais preciso para dependências
+            $details['database_error'] = 'Falha na conexão ou na query simples: ' . $e->getMessage();
+        }
+
+        // Verifica as variáveis de ambiente (basicamente checa se foram carregadas)
+        $envStatus = ($_ENV['DB_HOST'] && $_ENV['DB_NAME']) ? 'OK' : 'FAIL';
+        if ($envStatus === 'FAIL') {
+            $httpStatus = 503;
+            $details['environment_error'] = 'Variáveis de ambiente (DB_HOST/DB_NAME) não carregadas.';
+        }
+        
+        // Define o status geral
+        $overallStatus = ($httpStatus === 200) ? 'ACTIVE! 🎉' : 'DEGRADED! 😥';
+
+
+        // Envia a resposta completa
+        $this->sendResponse($httpStatus, [
+            'status' => $overallStatus,
+            'service' => 'URL Shortener API',
+            'dependencies' => [
+                'database' => $dbStatus,
+                'environment' => $envStatus
+            ],
+            'details' => $details,
+            'timestamp' => time()
+        ]);
+    }
+
+    /**
      * Retorna a base URL do servidor, incluindo o protocolo (http:// ou https://)
      * e o nome do host.
      *
@@ -142,8 +215,9 @@ class Router
      */
     private function sendResponse(int $status, array $data): void
     {
+        header('Content-Type: application/json');
         http_response_code($status);
-        echo json_encode($data);
+        echo json_encode($data, JSON_UNESCAPED_UNICODE);
     }
 
     /**
