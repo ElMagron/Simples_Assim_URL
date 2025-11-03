@@ -7,6 +7,7 @@ use Exception;
 class Router
 {
     private LinkService $linkService;
+    private string $basePath = '';
 
     public function __construct()
     {
@@ -29,6 +30,9 @@ class Router
 
         // Obtém o diretório base do projeto
         $baseDir = dirname($scriptName); 
+        if ($baseDir !== '/') {
+            $this->basePath = $baseDir;
+        }
 
         // Obtém a URI completa
         $requestUri = $_SERVER['REQUEST_URI'] ?? ''; 
@@ -48,7 +52,7 @@ class Router
 
         switch ($method) {
             case 'POST':
-                if($uri === 'create') {
+                if($uri === 'api/link') {
                     $this->handlePostCreate();
                 } else {
                     $this->sendNotFound();
@@ -57,9 +61,13 @@ class Router
             
             case 'GET':
                 if(!empty($uri)) {
-                    $this->handleGetRedirect($uri);
+                    if($uri === 'api/status') {
+                        $this->handleHealthCheck();
+                    } else {
+                        $this->handleGetRedirect($uri);
+                    }
                 } else {
-                    $this->handleHealthCheck();
+                    $this->handleHomepage(); 
                 }
                 break;
             default:
@@ -195,6 +203,19 @@ class Router
     }
 
     /**
+     * Carrega e exibe a página principal (o formulário HTML).
+     * @return void
+     */
+    private function handleHomepage(): void
+    {
+        // Define o tipo de conteúdo como HTML (evitando que o JSON header interfira)
+        header('Content-Type: text/html');
+        // Carrega e imprime o conteúdo do form.html
+        echo file_get_contents('form.html');
+        exit;
+    }
+
+    /**
      * Retorna a base URL do servidor, incluindo o protocolo (http:// ou https://)
      * e o nome do host.
      *
@@ -204,7 +225,8 @@ class Router
     {
         $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
         $host = $_SERVER['HTTP_HOST'];
-        return $protocol . $host;
+        $fullPath = $protocol . $host . $this->basePath;
+        return rtrim($fullPath, '/');
     }
 
     /**

@@ -15,10 +15,10 @@ Este documento lista as funcionalidades, melhorias e tarefas futuras para o proj
 COMO UM **usuário da aplicação**, EU QUERO **ter uma página web simples para colar uma URL longa**, PARA QUE EU POSSA **obter o link curto de forma fácil, sem usar ferramentas de API.**
 
 **Critérios de Aceitação (O que define "Pronto"):**
-- [ ] O projeto deve conter um `index.html` ou `index.php` que renderize um formulário.
-- [ ] O JavaScript deve ser capaz de fazer uma requisição `POST` para o endpoint `/api/link`.
-- [ ] O link curto resultante deve ser exibido em um campo de texto fácil de copiar.
-- [ ] Deve haver tratamento visual de erros (ex: alerta se a URL for inválida).
+- [✔] O projeto deve conter um `index.html` ou `index.php` que renderize um formulário.
+- [✔] O JavaScript deve ser capaz de fazer uma requisição `POST` para o endpoint `/api/link`.
+- [✔] O link curto resultante deve ser exibido em um campo de texto fácil de copiar.
+- [✔] Deve haver tratamento visual de erros (ex: alerta se a URL for inválida).
 
 ---
 
