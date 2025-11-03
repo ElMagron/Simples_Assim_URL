@@ -113,4 +113,32 @@ class LinkService
 
         return null;
     }
+
+    /**
+     * Busca as estatísticas de um link, dado o código curto.
+     * @param string $shortCode O código curto a ser consultado.
+     * @return array Retorna um array com 'clicks' e 'long_url', ou null se não for encontrado.
+     */
+    public function getLinkStats(string $shortCode): ?array
+    {
+        $sql = "SELECT long_url, clicks, created_at, valid_until FROM links WHERE short_code = :code";
+        $stmt = $this->db->prepare($sql);
+        $stmt->bindParam(':code', $shortCode);
+        $stmt->execute();
+        
+        $result = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+        // Se o resultado for falso (link não encontrado), retorna null
+        if (!$result) {
+            return null;
+        }
+
+        // Retorna apenas os dados relevantes
+        return [
+            'long_url' => $result['long_url'],
+            'clicks' => (int) $result['clicks'], // Garante que seja um inteiro
+            'created_at' => $result['created_at'],
+            'valid_until' => $result['valid_until'],
+        ];
+    }
 }
