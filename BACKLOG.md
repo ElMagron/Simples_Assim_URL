@@ -31,9 +31,9 @@ COMO UM **usuário da aplicação**, EU QUERO **ter uma página web simples para
 COMO UM **usuário**, EU QUERO **saber quantos cliques um link curto específico recebeu**, PARA QUE EU POSSA **monitorar a performance das minhas campanhas.**
 
 **Critérios de Aceitação:**
-- [ ] Criação de um novo endpoint `GET /api/stats/{short_code}`.
-- [ ] O endpoint deve retornar um JSON com `clicks: <número>` e `original_url: <url_longa>`.
-- [ ] Se o link não existir, deve retornar `404 Not Found`.
+- [✔] Criação de um novo endpoint `GET /api/stats/{short_code}`.
+- [✔] O endpoint deve retornar um JSON com `clicks: <número>` e `original_url: <url_longa>`.
+- [✔] Se o link não existir, deve retornar `404 Not Found`.
 
 ---
 
