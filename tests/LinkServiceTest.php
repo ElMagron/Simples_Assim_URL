@@ -132,4 +132,34 @@ class LinkServiceTest extends TestCase
 
         $this->assertNull($nonExistentStats, "Deve retornar NULL para um short_code inexistente.");
     }
+
+    /**
+     * Testa se o link não é redirecionado após o prazo de validade (valid_until).
+     * @return void
+     */
+    public function testLinkExpiresAfterValidUntil(): void
+    {
+        $longUrl = 'https://link.expirado.com/teste';
+
+        // ARRANGE 1: Cria um link que expira no passado (1 hora atrás)
+        $pastDate = (new \DateTime('-1 hour'))->format('Y-m-d H:i:s');
+        $expiredCode = $this->linkService->createLink($longUrl, $pastDate);
+
+        // ACT 1: Tenta obter o link expirado
+        $retrievedExpiredUrl = $this->linkService->getAndIncrementClicks($expiredCode);
+
+        // ASSERT 1: Deve retornar NULL
+        $this->assertNull($retrievedExpiredUrl, "O link deve retornar NULL (expirado) quando o valid_until for no passado.");
+
+
+        // ARRANGE 2: Cria um link que expira no futuro (1 hora no futuro)
+        $futureDate = (new \DateTime('+1 hour'))->format('Y-m-d H:i:s');
+        $validCode = $this->linkService->createLink($longUrl, $futureDate);
+
+        // ACT 2: Tenta obter o link válido
+        $retrievedValidUrl = $this->linkService->getAndIncrementClicks($validCode);
+
+        // ASSERT 2: Deve retornar a URL
+        $this->assertEquals($longUrl, $retrievedValidUrl, "O link deve ser redirecionado (válido) quando o valid_until for no futuro.");
+    }
 }

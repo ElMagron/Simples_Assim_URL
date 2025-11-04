@@ -48,11 +48,13 @@ class LinkService
     }
 
     /**
-     * Cria e armazena um novo link.
-     * @param string $longUrl A URL que será encurtada.
+     * Cria um novo link curto.
+     * @param string $longUrl A URL longa.
+     * @param string|null $validUntil Data e hora de expiração (opcional, formato YYYY-MM-DD HH:MM:SS).
      * @return string O código curto gerado.
+     * @throws \Exception Se a URL for inválida.
      */
-    public function createLink(string $longUrl): string
+    public function createLink(string $longUrl, ?string $validUntil = null): string
     {
         if (!filter_var($longUrl, FILTER_VALIDATE_URL)) {
             throw new Exception("URL fornecida é inválida.");
@@ -60,13 +62,15 @@ class LinkService
 
         $shortCode = $this->generateUniqueCode();
 
-        $sql = "INSERT INTO links (long_url, short_code, created_at) VALUES (:long_url, :short_code, NOW())";
+        $sql = "INSERT INTO links (short_code, long_url, created_at, valid_until) VALUES (:code, :url, NOW(), :valid_until)";
 
         $stmt = $this->db->prepare($sql);
-        $stmt->execute([
-            ':long_url' => $longUrl,
-            ':short_code' => $shortCode
-        ]);
+
+        $stmt->bindParam(':code', $shortCode);
+        $stmt->bindParam(':url', $longUrl);
+        $stmt->bindValue(':valid_until', $validUntil);
+
+        $stmt->execute();
 
         return $shortCode;
     }
@@ -78,40 +82,28 @@ class LinkService
      */
     public function getAndIncrementClicks(string $shortCode): ?string
     {
-        $shortCode = filter_var($shortCode, FILTER_SANITIZE_SPECIAL_CHARS);
+        $sql = "SELECT long_url, valid_until FROM links WHERE short_code = :code";
+        $stmt = $this->db->prepare($sql);
+        $stmt->bindParam(':code', $shortCode);
+        $stmt->execute();
+        $link = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        // Inicia a transação
-        $this->db->beginTransaction();
-
-        try {
-            // Busca a URL longa
-            $stmt = $this->db->prepare("SELECT long_url FROM links WHERE short_code = :short_code");
-            $stmt->execute([':short_code' => $shortCode]);
-            $longUrl = $stmt->fetchColumn();
-
-            // Se o link for encontrado e válido
-            if ($longUrl) {
-                // Incrementa o contador de cliques
-                $stmt = $this->db->prepare("UPDATE links SET clicks = clicks + 1 WHERE short_code = :short_code");
-                $stmt->execute([':short_code' => $shortCode]);
-
-                // Confirma a transação
-                $this->db->commit();
-                return $longUrl;
-            }
-
-            // Se não encontrou, desfaz a transação
-            $this->db->rollBack();
-
-        } catch (Exception $e) {
-            // Em caso de qualquer erro, desfaz a transação
-            if ($this->db->inTransaction()) {
-                $this->db->rollBack();
-            }
-            throw new Exception("Falha ao processar o link: " . $e->getMessage());
+        if (!$link) {
+            return null;
         }
 
-        return null;
+        if ($link['valid_until'] !== null) {
+            $currentTime = new \DateTime('now', new \DateTimeZone('UTC'));
+            $expiryTime = new \DateTime($link['valid_until'], new \DateTimeZone('UTC'));
+
+            if ($currentTime >= $expiryTime) {
+                return null;
+            }
+        }
+
+        $this->db->exec("UPDATE links SET clicks = clicks + 1 WHERE short_code = '{$shortCode}'");
+
+        return $link['long_url'];
     }
 
     /**
@@ -126,7 +118,7 @@ class LinkService
         $stmt->bindParam(':code', $shortCode);
         $stmt->execute();
         
-        $result = $stmt->fetch(\PDO::FETCH_ASSOC);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
         // Se o resultado for falso (link não encontrado), retorna null
         if (!$result) {

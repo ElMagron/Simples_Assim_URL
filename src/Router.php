@@ -120,10 +120,11 @@ class Router
         }
 
         $longUrl = $data['long_url'];
+        $validUntil = $data['valid_until'] ?? null;
 
         try {
             // Chama a lógica de negócio
-            $shortCode = $this->linkService->createLink($longUrl);
+            $shortCode = $this->linkService->createLink($longUrl, $validUntil);
 
             // Retorna a URL encurtada com Status 201 (Created)
             $shortUrl = $this->getBaseUrl() . '/' . $shortCode;
