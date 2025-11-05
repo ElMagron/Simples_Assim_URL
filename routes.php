@@ -1,6 +1,6 @@
 <?php
 
-/** @var \App\Router $router */ // Para ajudar o seu editor/IDE
+/** @var \App\Router $router */
 
 $router->get('api/status', 'handleHealthCheck');
 

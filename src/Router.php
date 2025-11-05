@@ -110,7 +110,6 @@ class Router
     {
         header('Content-Type: application/json');
 
-        // Recebe o conteúdo JSON do corpo da requisição (corpo do POST)
         $input = file_get_contents('php://input');
         $data = json_decode($input, true);
 
@@ -123,10 +122,8 @@ class Router
         $validUntil = $data['valid_until'] ?? null;
 
         try {
-            // Chama a lógica de negócio
             $shortCode = $this->linkService->createLink($longUrl, $validUntil);
 
-            // Retorna a URL encurtada com Status 201 (Created)
             $shortUrl = $this->getBaseUrl() . '/' . $shortCode;
             $this->sendResponse(201, [
                 'short_code' => $shortCode,
@@ -134,11 +131,10 @@ class Router
             ]);
 
         } catch (Exception $e) {
-            // Em caso de erro de validação (ex: URL inválida) ou banco de dados
             $this->sendResponse(500, ['error' => 'Falha ao criar o link.', 'details' => $e->getMessage()]);
         }
     }
-    
+
     /**
      * Retorna a base URL do servidor, incluindo o protocolo (http:// ou https://)
      * e o nome do host.
@@ -169,22 +165,16 @@ class Router
     private function handleGetRedirect(string $shortCode): void
     {
         try {
-            // Chama a lógica de busca e incremento
             $longUrl = $this->linkService->getAndIncrementClicks($shortCode);
 
             if ($longUrl) {
-                // Redirecionamento 301 ou 302
-                // 301 (Permanente): Melhor para SEO, mas cacheia.
-                // 302 (Encontrado/Temporário): Melhor para estatísticas/contador.
                 header('Location: ' . $longUrl, true, 302);
-                exit; // Termina a execução após o redirecionamento
+                exit;
             }
 
-            // Se o hash não foi encontrado ou expirou
             $this->sendNotFound();
 
         } catch (Exception $e) {
-            // Erro interno (banco de dados falhou, etc.)
             $this->sendResponse(500, ['error' => 'Erro interno ao processar o link.']);
         }
     }
@@ -201,31 +191,25 @@ class Router
         $details = [];
 
         try {
-            // Tenta obter uma conexão real com o banco de dados
             $db = Database::getInstance()->getConnection();
 
-            // Tenta executar uma query simples para garantir que o DB está UP
             $db->query('SELECT 1')->fetch();
 
-        } catch (\Exception $e) {
-            // Se houver qualquer erro (conexão, credenciais, etc.)
+        } catch (Exception $e) {
             $dbStatus = 'FAIL';
-            $httpStatus = 503; // Service Unavailable é mais preciso para dependências
+            $httpStatus = 503;
             $details['database_error'] = 'Falha na conexão ou na query simples: ' . $e->getMessage();
         }
 
-        // Verifica as variáveis de ambiente (basicamente checa se foram carregadas)
         $envStatus = ($_ENV['DB_HOST'] && $_ENV['DB_NAME']) ? 'OK' : 'FAIL';
         if ($envStatus === 'FAIL') {
             $httpStatus = 503;
             $details['environment_error'] = 'Variáveis de ambiente (DB_HOST/DB_NAME) não carregadas.';
         }
 
-        // Define o status geral
         $overallStatus = ($httpStatus === 200) ? 'ACTIVE! 🎉' : 'DEGRADED! 😥';
 
 
-        // Envia a resposta completa
         $this->sendResponse($httpStatus, [
             'status' => $overallStatus,
             'service' => 'URL Shortener API',
@@ -244,9 +228,7 @@ class Router
      */
     private function handleHomepage(): void
     {
-        // Define o tipo de conteúdo como HTML (evitando que o JSON header interfira)
         header('Content-Type: text/html');
-        // Carrega e imprime o conteúdo do form.html
         echo file_get_contents('form.html');
         exit;
     }
@@ -259,24 +241,20 @@ class Router
     private function handleGetStats(string $shortCode): void
     {
         try {
-            // Chama a lógica de busca do serviço
             $stats = $this->linkService->getLinkStats($shortCode);
 
             if ($stats) {
-                // Retorna as estatísticas com Status 200 (OK)
                 $this->sendResponse(200, [
                     'message' => 'Estatísticas encontradas.',
                     'link_info' => $stats
                 ]);
             } else {
-                // Se o código não for encontrado, retorna 404
                 $this->sendResponse(404, ['error' => 'Link de estatísticas não encontrado.']);
             }
 
         } catch (Exception $e) {
-            // Em caso de erro de banco de dados
             $this->sendResponse(500, [
-                'error' => 'Erro interno ao buscar estatísticas.', 
+                'error' => 'Erro interno ao buscar estatísticas.',
                 'details' => $e->getMessage()
             ]);
         }

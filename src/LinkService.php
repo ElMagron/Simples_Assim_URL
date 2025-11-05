@@ -9,13 +9,10 @@ class LinkService
 {
     private PDO $db;
     private const SHORT_CODE_LENGTH = 5;
-
-
     private const ALPHABET = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
     public function __construct()
     {
-        // Obtém a única instância da conexão PDO via Singleton
         $this->db = Database::getInstance()->getConnection();
     }
 
@@ -37,7 +34,6 @@ class LinkService
                 $code .= self::ALPHABET[random_int(0, $alphabetLength - 1)];
             }
 
-            // Verifica no banco se o short_code já está em uso
             $stmt = $this->db->prepare("SELECT COUNT(*) FROM links WHERE short_code = :code");
             $stmt->execute([':code' => $code]);
             $exists = $stmt->fetchColumn();
@@ -117,18 +113,16 @@ class LinkService
         $stmt = $this->db->prepare($sql);
         $stmt->bindParam(':code', $shortCode);
         $stmt->execute();
-        
+
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        // Se o resultado for falso (link não encontrado), retorna null
         if (!$result) {
             return null;
         }
 
-        // Retorna apenas os dados relevantes
         return [
             'long_url' => $result['long_url'],
-            'clicks' => (int) $result['clicks'], // Garante que seja um inteiro
+            'clicks' => (int) $result['clicks'],
             'created_at' => $result['created_at'],
             'valid_until' => $result['valid_until'],
         ];

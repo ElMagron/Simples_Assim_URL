@@ -1,5 +1,4 @@
 <?php
-// tests/LinkServiceTest.php
 
 namespace Tests;
 
@@ -24,7 +23,6 @@ class LinkServiceTest extends TestCase
         $db = Database::getInstance()->getConnection();
         $db->exec("DELETE FROM links");
     }
-
 
     /**
      * Testa se a criação de um link e a subsequente redirecionamento
@@ -57,7 +55,6 @@ class LinkServiceTest extends TestCase
         $this->assertEquals(1, (int) $clicks);
     }
 
-
     /**
      * Testa se a criação de um link com uma URL inválida lança uma exceção.
      *
@@ -72,7 +69,6 @@ class LinkServiceTest extends TestCase
 
         $this->linkService->createLink("nao-e-uma-url");
     }
-
 
     /**
      * Testa se a busca por um link inexistente retorna nulo.
@@ -99,35 +95,25 @@ class LinkServiceTest extends TestCase
      */
     public function testGetLinkStatsSuccessAndFailure(): void
     {
-        // 1. ARRANGE: Prepara o cenário no banco de dados
         $testCode = 'ST4T5';
         $testUrl = 'https://www.exemplo.com/url-para-estatisticas';
         $initialClicks = 15;
-        
-        // Como o seu LinkService não tem um método para inserir com cliques,
-        // vamos usar a conexão direta do setUp() para garantir os dados iniciais.
+
         $db = Database::getInstance()->getConnection();
-        
-        // Insere o registro com um número inicial de cliques (15)
+
         $sql = "INSERT INTO links (short_code, long_url, clicks, created_at) 
                 VALUES (?, ?, ?, NOW())";
         $stmt = $db->prepare($sql);
         $stmt->execute([$testCode, $testUrl, $initialClicks]);
 
-
-        // 2. ACT & ASSERT (Sucesso): Verifica se o método retorna as estatísticas corretas
-        
         $stats = $this->linkService->getLinkStats($testCode);
 
         $this->assertIsArray($stats, "Deve retornar um array de estatísticas.");
         $this->assertEquals($testUrl, $stats['long_url'], "A URL longa deve ser a mesma que foi inserida.");
         $this->assertEquals($initialClicks, $stats['clicks'], "O contador de cliques deve ser o inicial (15).");
         $this->assertArrayHasKey('created_at', $stats, "O array deve conter o campo 'created_at'.");
-        // O valid_until pode ser null, mas o campo deve existir na query
         $this->assertArrayHasKey('valid_until', $stats, "O array deve conter o campo 'valid_until'.");
 
-
-        // 3. ACT & ASSERT (Falha): Verifica se retorna nulo para código inexistente
         $nonExistentStats = $this->linkService->getLinkStats('NAO_EXI5T3');
 
         $this->assertNull($nonExistentStats, "Deve retornar NULL para um short_code inexistente.");
@@ -139,27 +125,20 @@ class LinkServiceTest extends TestCase
      */
     public function testLinkExpiresAfterValidUntil(): void
     {
-        $longUrl = 'https://link.expirado.com/teste';
+        $longUrl = 'https://www.exemplo.com/teste-expirado';
 
-        // ARRANGE 1: Cria um link que expira no passado (1 hora atrás)
         $pastDate = (new \DateTime('-1 hour'))->format('Y-m-d H:i:s');
         $expiredCode = $this->linkService->createLink($longUrl, $pastDate);
 
-        // ACT 1: Tenta obter o link expirado
         $retrievedExpiredUrl = $this->linkService->getAndIncrementClicks($expiredCode);
 
-        // ASSERT 1: Deve retornar NULL
         $this->assertNull($retrievedExpiredUrl, "O link deve retornar NULL (expirado) quando o valid_until for no passado.");
 
-
-        // ARRANGE 2: Cria um link que expira no futuro (1 hora no futuro)
         $futureDate = (new \DateTime('+1 hour'))->format('Y-m-d H:i:s');
         $validCode = $this->linkService->createLink($longUrl, $futureDate);
 
-        // ACT 2: Tenta obter o link válido
         $retrievedValidUrl = $this->linkService->getAndIncrementClicks($validCode);
 
-        // ASSERT 2: Deve retornar a URL
         $this->assertEquals($longUrl, $retrievedValidUrl, "O link deve ser redirecionado (válido) quando o valid_until for no futuro.");
     }
 }
